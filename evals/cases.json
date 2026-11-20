@@ -1,0 +1,58 @@
+{
+  "minPassRate": 0.8,
+  "cases": [
+    {
+      "id": "capital-france",
+      "prompt": "What is the capital of France? Answer with one word.",
+      "checks": [{ "type": "contains_any", "values": ["paris"] }]
+    },
+    {
+      "id": "arithmetic",
+      "prompt": "What is 2 + 2? Answer with only the number.",
+      "checks": [{ "type": "contains_any", "values": ["4"] }]
+    },
+    {
+      "id": "https-port",
+      "prompt": "What is the default port for HTTPS? Answer with only the number.",
+      "checks": [{ "type": "contains_any", "values": ["443"] }]
+    },
+    {
+      "id": "http-not-found",
+      "prompt": "What is the HTTP status code for Not Found? Answer with only the number.",
+      "checks": [{ "type": "contains_any", "values": ["404"] }]
+    },
+    {
+      "id": "water-boiling",
+      "prompt": "At sea level, what is the boiling point of water in degrees Celsius? Answer with only the number.",
+      "checks": [{ "type": "contains_any", "values": ["100"] }]
+    },
+    {
+      "id": "cpu-acronym",
+      "prompt": "What does the acronym CPU stand for?",
+      "checks": [{ "type": "contains_any", "values": ["processing"] }]
+    },
+    {
+      "id": "linux-list-files",
+      "prompt": "Which Linux command lists the files in a directory? Answer in one word.",
+      "checks": [{ "type": "contains_any", "values": ["ls"] }, { "type": "max_words", "max": 5 }]
+    },
+    {
+      "id": "earth-round",
+      "prompt": "Is the Earth round? Answer yes or no.",
+      "checks": [{ "type": "contains_any", "values": ["yes"] }, { "type": "not_contains", "values": ["no"] }]
+    },
+    {
+      "id": "circuit-breaker-explain",
+      "prompt": "In one sentence, explain what a circuit breaker does in a distributed system.",
+      "checks": [
+        { "type": "contains_any", "values": ["fail", "error", "stop", "block", "open"] },
+        { "type": "max_words", "max": 60 }
+      ]
+    },
+    {
+      "id": "json-status",
+      "prompt": "Reply with only a JSON object that has a key \"status\" with the value \"ok\". No other text.",
+      "checks": [{ "type": "regex", "pattern": "\\{\\s*\"status\"\\s*:\\s*\"ok\"\\s*\\}" }]
+    }
+  ]
+}

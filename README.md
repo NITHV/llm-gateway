@@ -67,6 +67,18 @@ $env:GATEWAY_KEYS = "local-dev-key"; $env:RATE_LIMIT_PER_MIN = "100000"; npm sta
 k6 run -e VUS=4 -e DURATION=60s -e GATEWAY_KEY=local-dev-key loadtest/chat.js
 ```
 
+## Eval gate (GitHub Actions)
+
+`.github/workflows/eval.yml` runs on every push to `main` and every pull request. It:
+1. Runs the unit tests.
+2. Installs Ollama on the runner and pulls `llama3.2:1b`.
+3. Starts the gateway and runs `evals/run.js` against it.
+4. Fails the build if the pass rate is below `minPassRate` (80%) in `evals/cases.json`.
+
+The suite has 10 questions with simple, checkable answers. Each question has checks such as "contains any of these words", "at most N words" or "matches this pattern". The runner sets temperature to 0 to keep answers as repeatable as the model allows. Results appear on the Actions run's summary page.
+
+This is a quality gate, the same idea as an SLO gate: a change that makes the model or the gateway worse is caught before it lands. It runs on GitHub's free runners for public repos, so it uses none of your laptop's RAM.
+
 ## Container and Kubernetes (status: partial)
 
 - `Dockerfile` builds a 244 MB image that runs as a non-root user. A test run returned `/health` correctly.
