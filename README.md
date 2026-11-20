@@ -39,6 +39,25 @@ npm test
 - **Bounded resources:** request bodies are capped at 1 MB, and every upstream call has a timeout.
 - **Errors stay internal:** the client sees a generic 503, and the full backend errors go to the server log.
 
+## Load test results
+
+Run with k6 (v2.4.0). Each run used a fixed number of virtual users for 60 seconds. Every request asks for at most 48 output tokens. The model was `llama3.2:1b` (Q8_0) in Ollama, on an Intel i5-10300H with a GTX 1650 Ti (4 GB) and 7.8 GB RAM. The rate limit was raised for the test. Raw summaries are in `loadtest/results/`.
+
+| Virtual users | Requests | Throughput (req/s) | Median latency | p95 latency | Errors |
+|---|---|---|---|---|---|
+| 1 | 113 | 1.87 | 557 ms | 649 ms | 0 |
+| 2 | 105 | 1.73 | 1,150 ms | 1,329 ms | 0 |
+| 4 | 98 | 1.59 | 2,483 ms | 2,808 ms | 0 |
+
+**What this shows:** throughput stays flat while latency grows in step with concurrency. That is what a single backend that handles one request at a time looks like. Little's law explains it: 4 users ÷ 2.48 s ≈ 1.6 req/s, which matches the measured throughput. Adding more users only adds queueing delay. To raise throughput, add capacity: more model instances, parallel slots in Ollama (`OLLAMA_NUM_PARALLEL`), or a second backend. I have not yet tested the parallel-slots setting. That is the next experiment.
+
+Reproduce:
+
+```powershell
+$env:GATEWAY_KEYS = "local-dev-key"; $env:RATE_LIMIT_PER_MIN = "100000"; npm start
+k6 run -e VUS=4 -e DURATION=60s -e GATEWAY_KEY=local-dev-key loadtest/chat.js
+```
+
 ## Known limits (on purpose, for a first version)
 - No streaming responses yet. Requests with `stream: true` are rejected.
 - The rate limiter and circuit breaker keep state in memory, so they reset on restart and don't work across several gateway instances.
