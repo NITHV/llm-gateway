@@ -4,7 +4,9 @@ import { loadConfig } from './config.js';
 import { CircuitBreaker } from './breaker.js';
 import { RateLimiter } from './ratelimit.js';
 import { Metrics } from './metrics.js';
-import { routeChat, AllBackendsFailed } from './router.js';
+import { routeChat, routeStream, AllBackendsFailed } from './router.js';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
 const MAX_BODY_BYTES = 1_000_000;
 
@@ -21,6 +23,44 @@ export function createServer(cfg = loadConfig()) {
     res.writeHead(status, { 'content-type': 'application/json', ...headers });
     res.end(JSON.stringify(obj));
   };
+
+  // Relays the upstream server-sent events to the client as they arrive.
+  async function handleStream(res, body) {
+    const abort = new AbortController();
+    // If the client disconnects, stop the upstream generation too.
+    res.on('close', () => abort.abort());
+
+    let out;
+    try {
+      out = await routeStream(body, backends, { timeoutMs: cfg.requestTimeoutMs, metrics, signal: abort.signal });
+    } catch (err) {
+      if (err instanceof AllBackendsFailed) {
+        console.error('all backends failed (stream):', err.errors);
+        return sendJson(res, 503, { error: 'all backends unavailable' });
+      }
+      throw err;
+    }
+
+    // Upstream returned a client error (4xx): pass it through as a normal JSON response.
+    if (out.stream === null) {
+      res.writeHead(out.status, { 'content-type': 'application/json', 'x-backend': out.backend });
+      return res.end(out.body);
+    }
+
+    res.writeHead(200, {
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-cache',
+      connection: 'keep-alive',
+      'x-backend': out.backend,
+    });
+    try {
+      await pipeline(Readable.fromWeb(out.stream), res);
+    } catch {
+      // The client left or the upstream was cut off partway through. Nothing more to send.
+    } finally {
+      out.done();
+    }
+  }
 
   async function handle(req, res) {
     const url = new URL(req.url, 'http://localhost');
@@ -64,8 +104,8 @@ export function createServer(cfg = loadConfig()) {
       if (!Array.isArray(body.messages)) {
         return sendJson(res, 400, { error: 'messages must be an array' });
       }
-      if (body.stream) {
-        return sendJson(res, 400, { error: 'streaming is not supported yet' });
+      if (body.stream === true) {
+        return handleStream(res, body);
       }
 
       try {

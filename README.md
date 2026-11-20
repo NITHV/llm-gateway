@@ -87,12 +87,12 @@ This is a quality gate, the same idea as an SLO gate: a change that makes the mo
 - **Not yet running in a cluster.** The first kind cluster attempts failed while the control plane was starting, on a laptop with 0.4 to 1 GB of free RAM. The API server came up, but etcd was slow and the admin permissions were never created, so the node never registered. Retrying after a WSL restart with more free memory is the next step.
 
 ## Known limits (on purpose, for a first version)
-- No streaming responses yet. Requests with `stream: true` are rejected.
+- Streaming (`stream: true`) is relayed as server-sent events. Failover only happens before the first byte reaches the client, because after that the client already has part of the answer. A backend that fails mid-stream cuts the response short.
+- The request timeout also covers the whole streamed answer, so very long generations need a larger `REQUEST_TIMEOUT_MS`.
 - The rate limiter and circuit breaker keep state in memory, so they reset on restart and don't work across several gateway instances.
 - Half-open allows all concurrent requests through, not just one trial request.
 - No response cache yet.
 
 ## Next steps
-- Streaming (SSE pass-through)
 - A response cache keyed on the request body
 - Load test with k6 and an SLO dashboard (project 3)
