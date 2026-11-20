@@ -49,7 +49,16 @@ Run with k6 (v2.4.0). Each run used a fixed number of virtual users for 60 secon
 | 2 | 105 | 1.73 | 1,150 ms | 1,329 ms | 0 |
 | 4 | 98 | 1.59 | 2,483 ms | 2,808 ms | 0 |
 
-**What this shows:** throughput stays flat while latency grows in step with concurrency. That is what a single backend that handles one request at a time looks like. Little's law explains it: 4 users ÷ 2.48 s ≈ 1.6 req/s, which matches the measured throughput. Adding more users only adds queueing delay. To raise throughput, add capacity: more model instances, parallel slots in Ollama (`OLLAMA_NUM_PARALLEL`), or a second backend. I have not yet tested the parallel-slots setting. That is the next experiment.
+**What this shows:** throughput stays flat while latency grows in step with concurrency. That is what a single backend that handles one request at a time looks like. Little's law explains it: 4 users ÷ 2.48 s ≈ 1.6 req/s, which matches the measured throughput. Adding more users only adds queueing delay.
+
+**Experiment: 2 parallel slots.** I restarted Ollama with `OLLAMA_NUM_PARALLEL=2` and reran the same tests (one run each):
+
+| Virtual users | Throughput (req/s) | Median latency | p95 latency | Errors |
+|---|---|---|---|---|
+| 1 | 2.03 | 512 ms | 560 ms | 0 |
+| 4 | 3.09 | 1,311 ms | 1,495 ms | 0 |
+
+At 4 users, throughput rose about 2x (1.59 → 3.09 req/s) and median latency fell by about half (2,483 → 1,311 ms). Little's law holds again: 4 ÷ 1.31 s ≈ 3.05 req/s. Two slots roughly double capacity, and the rest of the queue still waits. These are single runs on a laptop, so treat the exact numbers as approximate. Next, I'd test whether the extra slots use more memory, since this PC has little RAM to spare.
 
 Reproduce:
 
