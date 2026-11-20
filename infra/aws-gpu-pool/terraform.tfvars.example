@@ -1,0 +1,12 @@
+# Copy to terraform.tfvars and fill in. Do not commit real values.
+region           = "ap-south-1"
+name             = "gpu-pool"
+ami_id           = "ami-xxxxxxxxxxxxxxxxx" # AMI with NVIDIA drivers
+subnet_ids       = ["subnet-xxxxxxxxxxxxxxxxx"]
+instance_type    = "g4dn.xlarge"
+max_size         = 1
+desired_when_on  = 0 # keep 0 until you need the pool
+scale_down_cron  = "30 16 * * *"
+scale_up_cron    = ""
+monthly_budget_usd = 5
+alert_email      = "you@example.com"

@@ -79,6 +79,32 @@ The suite has 10 questions with simple, checkable answers. Each question has che
 
 This is a quality gate, the same idea as an SLO gate: a change that makes the model or the gateway worse is caught before it lands. It runs on GitHub's free runners for public repos, so it uses none of your laptop's RAM.
 
+## RAG pipeline (`rag/`)
+
+A retrieval pipeline over this repo's Markdown, with embeddings from `nomic-embed-text` through Ollama. It uses only Node's built-in SQLite, so there are no npm dependencies.
+
+```powershell
+node rag/cli.js index                          # index README.md and docs/ (re-run is cheap)
+node rag/cli.js query "your question" --k 3    # show the top matching chunks
+node rag/cli.js query "your question" --answer # also answer through the gateway, using those chunks
+node rag/cli.js status                         # chunks per file, embedding model, last indexed
+node rag/cli.js backup                         # consistent copy of the index file
+```
+
+What it does:
+- **Incremental indexing.** Each chunk is hashed. A re-run embeds only new or changed chunks, and it removes chunks from deleted or shortened files.
+- **Model change means rebuild.** Vectors from two embedding models can't be compared, so the index is rebuilt when the model changes. The model name is stored in the index.
+- **Prefixes.** Documents are embedded with `search_document:` and queries with `search_query:`, which is how `nomic-embed-text` was trained.
+- **Backups.** `VACUUM INTO` writes a consistent copy while the index is in use. Restoring is copying the file back.
+
+Limits: the search is a brute-force scan, which is fine for a few thousand chunks. Chunk IDs are based on position in the file, so inserting text near the top renumbers the chunks below it and re-embeds them. A vector database would be the next step for a larger corpus.
+
+Tests use a deterministic fake embedder, so they run without Ollama.
+
+## Terraform: GPU node pool (`infra/aws-gpu-pool/`)
+
+A Terraform module for an AWS GPU pool that starts at zero instances, has a hard instance ceiling, sends monthly budget alerts, and requires IMDSv2 with encrypted disks. It passes `terraform validate` but has **not been applied**, because applying creates real, billable resources. See its README for the details.
+
 ## Container and Kubernetes (status: partial)
 
 - `Dockerfile` builds a 244 MB image that runs as a non-root user. A test run returned `/health` correctly.
