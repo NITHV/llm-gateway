@@ -1,0 +1,12 @@
+# Single-node kind cluster for the gateway (Project 2).
+# Docker Desktop on this PC uses cgroup v1, which newer kubelets refuse by default.
+# failCgroupV1: false allows the kubelet to run on it. This is a local workaround, not for production.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: gateway
+nodes:
+  - role: control-plane
+kubeadmConfigPatches:
+  - |
+    kind: KubeletConfiguration
+    failCgroupV1: false

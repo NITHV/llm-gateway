@@ -1,0 +1,98 @@
+# Gateway on Kubernetes (Project 2).
+#
+# Create the API key Secret yourself. It is not stored in this repo:
+#   kubectl create secret generic gateway-secrets --from-literal=GATEWAY_KEYS=<your-key>
+#
+# Ollama runs on the host, so the pod reaches it through host.docker.internal (Docker Desktop).
+#
+# Replicas stay at 1 on purpose. The rate limiter and circuit breaker keep state in memory,
+# so each replica would track them separately.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-config
+  labels:
+    app: llm-gateway
+data:
+  PORT: "8080"
+  OLLAMA_URL: "http://host.docker.internal:11434/v1"
+  OLLAMA_MODEL: "llama3.2:1b"
+  RATE_LIMIT_PER_MIN: "30"
+  REQUEST_TIMEOUT_MS: "120000"
+  BREAKER_THRESHOLD: "3"
+  BREAKER_COOLDOWN_MS: "30000"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-gateway
+  labels:
+    app: llm-gateway
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate   # avoids two pods running at once during an update on a small laptop cluster
+  selector:
+    matchLabels:
+      app: llm-gateway
+  template:
+    metadata:
+      labels:
+        app: llm-gateway
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: gateway
+          image: llm-gateway:0.1.0
+          imagePullPolicy: IfNotPresent   # image is loaded into kind directly, not pulled
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: gateway-config
+            - secretRef:
+                name: gateway-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-gateway
+  labels:
+    app: llm-gateway
+spec:
+  type: ClusterIP
+  selector:
+    app: llm-gateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

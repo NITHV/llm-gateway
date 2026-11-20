@@ -67,6 +67,13 @@ $env:GATEWAY_KEYS = "local-dev-key"; $env:RATE_LIMIT_PER_MIN = "100000"; npm sta
 k6 run -e VUS=4 -e DURATION=60s -e GATEWAY_KEY=local-dev-key loadtest/chat.js
 ```
 
+## Container and Kubernetes (status: partial)
+
+- `Dockerfile` builds a 244 MB image that runs as a non-root user. A test run returned `/health` correctly.
+- `k8s/gateway.yaml` holds the ConfigMap, Deployment (with probes, resource limits, read-only root filesystem, dropped capabilities) and Service. It renders cleanly with `kubectl kustomize`. I have not validated it against the Kubernetes schema.
+- `k8s/kind-gateway.yaml` is the kind cluster config. It sets `failCgroupV1: false`, because Docker Desktop on this PC uses cgroup v1.
+- **Not yet running in a cluster.** The first kind cluster attempts failed while the control plane was starting, on a laptop with 0.4 to 1 GB of free RAM. The API server came up, but etcd was slow and the admin permissions were never created, so the node never registered. Retrying after a WSL restart with more free memory is the next step.
+
 ## Known limits (on purpose, for a first version)
 - No streaming responses yet. Requests with `stream: true` are rejected.
 - The rate limiter and circuit breaker keep state in memory, so they reset on restart and don't work across several gateway instances.
